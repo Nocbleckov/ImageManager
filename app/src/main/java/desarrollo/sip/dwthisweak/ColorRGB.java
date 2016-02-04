@@ -13,12 +13,14 @@ public class ColorRGB extends Color {
     int color;
     int media;
     int binario;
+    int canalesRGB[];
 
     public ColorRGB(int color) {
         this.color = color;
         this.red = Color.red(color);
         this.green = Color.green(color);
         this.blue = Color.blue(color);
+        this.canalesRGB = new int[]{red, green, blue};
         this.media = ((int) (red + green + blue) / 3);
     }
 
@@ -26,6 +28,7 @@ public class ColorRGB extends Color {
         this.red = red;
         this.green = green;
         this.blue = blue;
+        this.canalesRGB = new int[]{red,green,blue};
         this.media = ((int) (red + green + blue) / 3);
     }
 
@@ -53,6 +56,21 @@ public class ColorRGB extends Color {
     public int getGreen() {
         return green;
     }
+
+    public int getEquilibrio(int[] max,int[] min){
+        for(int canal = 0;canal<3;canal++){
+
+            double factor = 256.0/(max[canal]-min[canal]);
+            canalesRGB[canal] = (int)((canalesRGB[canal]-min[canal])*factor);
+            canalesRGB[canal] = Math.min(255,Math.max(0,canalesRGB[canal]));
+        }
+        this.red = canalesRGB[0];
+        this.green = canalesRGB[1];
+        this.blue = canalesRGB[2];
+        return Color.rgb(red,green,blue);
+
+    }
+
 
     @Override
     public String toString() {

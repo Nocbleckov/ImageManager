@@ -10,6 +10,13 @@ import android.util.Log;
 import android.widget.ImageView;
 import android.widget.NumberPicker;
 
+import com.facebook.AccessToken;
+import com.facebook.FacebookSdk;
+import com.facebook.GraphRequest;
+import com.facebook.GraphResponse;
+import com.facebook.HttpMethod;
+import com.facebook.login.widget.LoginButton;
+
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 
@@ -17,6 +24,7 @@ public class PrimeActivity extends AppCompatActivity {
 
     ImageView imagenSrc;
     NumberPicker numbrePicker;
+    LoginButton login;
     Bitmap origin;
 
     int[] originalPixels;
@@ -32,8 +40,23 @@ public class PrimeActivity extends AppCompatActivity {
         numbrePicker = (NumberPicker)findViewById(R.id.numberPicker_Prime);
         origin = ((BitmapDrawable)imagenSrc.getDrawable()).getBitmap();
 
+        login = (LoginButton)findViewById(R.id.loginButton);
+        login.setReadPermissions("user_friend");
+
         numbrePicker.setMaxValue(255);
         numbrePicker.setMinValue(0);
+
+
+        FacebookSdk.sdkInitialize(getApplicationContext());
+
+
+        new GraphRequest(AccessToken.getCurrentAccessToken(), "me/friends", null, HttpMethod.GET, new GraphRequest.Callback(){
+
+            @Override
+            public void onCompleted(GraphResponse response) {
+                Log.wtf("RESPONSE",response.toString());
+            }
+        }).executeAsync();
 
         listenerPicker();
 
@@ -60,8 +83,10 @@ public class PrimeActivity extends AppCompatActivity {
         //Bitmap bitmapTemp = Bitmap.createBitmap(imageWidth,imageHeight, Bitmap.Config.ARGB_8888);
         Bitmap bitmapTemp = Bitmap.createBitmap(temp);
         originalPixels = new int[imageHeight*imageWidth];
-        int[] pixelsBin = new int[imageHeight*imageWidth];
 
+        int[] pixelsBin = new int[imageHeight*imageWidth];
+        int[][] histograma = new int[3][256];
+        int total = 0;
 
         try{
 
@@ -69,15 +94,32 @@ public class PrimeActivity extends AppCompatActivity {
 
             for(int i = 0;i<originalPixels.length;i++){
                 ColorRGB colorRGB = new ColorRGB(originalPixels[i]);
-                //pixelsBin[i] = colorRGB.getMedia();
+                int rgb[] = canales(colorRGB);
+                for(int canal = 0;canal<3;canal++){
+                    histograma[canal][rgb[canal]]++;
+                }
+                total++;
             }
 
+            int maxmin[][] = canalMaxMin(histograma,total,10);
 
-            //IntBuffer intBuffer = IntBuffer.allocate(imageHeight*imageWidth);
-            //intBuffer.put(pixelsBin);
-            //intBuffer.rewind();
+            int max[] = maxmin[0];
+            int min[] = maxmin[1];
 
-            //bitmapTemp.copyPixelsFromBuffer(intBuffer);
+            for(int i = 0;i<originalPixels.length;i++){
+                ColorRGB colorRGB = new ColorRGB(originalPixels[i]);
+                int nuevoColor = colorRGB.getEquilibrio(max,min);
+                pixelsBin[i] = nuevoColor;
+            }
+
+            IntBuffer intBuffer = IntBuffer.allocate(imageHeight*imageWidth);
+            intBuffer.put(pixelsBin);
+            intBuffer.rewind();
+
+            bitmapTemp.copyPixelsFromBuffer(intBuffer);
+
+
+
 
         }catch (Exception e){
             e.printStackTrace();
@@ -88,32 +130,47 @@ public class PrimeActivity extends AppCompatActivity {
     }
 
 
-    public void canalMaxMin(ColorRGB pixelColor,int[] max, int[] min){
-        if(){
-            max = {pixelColor.red, pixelColor.getGreen(), pixelColor.getBlue()};
-            min = {pixelColor.red, pixelColor.getGreen(), pixelColor.getBlue()};
+    public int[] canales(ColorRGB pixelColor){
+        int rgb[] = {
+          pixelColor.red,pixelColor.green,pixelColor.blue
+        };
+        return rgb;
+    }
+
+    public int[][] canalMaxMin(int[][] histograma,int total,int porcentajeRuido){
+        int min[]={-1,-1,-1};
+        int acumMin[]={0, 0, 0};
+        int max[]={-1,-1,-1};
+        int acumMax[]={0, 0, 0};
+
+        for (int canal=0;canal < 3;canal++){
+            for (int tono=0;tono < 256;tono++){
+                if (min[canal]==-1){
+                    acumMin[canal]+=histograma[canal][tono];
+                    if (acumMin[canal] > total*porcentajeRuido/100){
+                        min[canal]=tono;
+                    }
+                }
+                if (max[canal]==-1){
+                    acumMax[canal]+=histograma[canal][255-tono];
+                    if (acumMax[canal] > total*porcentajeRuido/100){
+                        max[canal]=255-tono;
+                    }
+                }
+            }
         }
-            if(max[0]<=pixelColor.getRed()){
-                max[0] = pixelColor.getRed();
-            }else{
-                min[0] = pixelColor.getRed();
-            }
-            if(max[1]<=pixelColor.getRed()){
-                max[1] = pixelColor.getRed();
-            }else{
-                min[1] = pixelColor.getRed();
-            }
-            if(max[2]<=pixelColor.getRed()){
-                max[2] = pixelColor.getRed();
-            }else{
-                min[2] = pixelColor.getRed();
-            }
 
-        ColorRGB colorMax = new ColorRGB(max[0],max[1],max[2]);
-        ColorRGB colorMin = new ColorRGB(min[0],min[1],min[2]);
+        System.out.println("Maximo");
+        for(int x = 0;x<3;x++){
+            System.out.println(max[x]);
+        }
 
-        Log.wtf("Canales Max",colorMax.toString());
-        Log.wtf("Canales Min",colorMin.toString());
+        System.out.println("Minimo");
+        for(int x = 0;x<3;x++){
+            System.out.println(min[x]);
+        }
+
+        return new int[][]{max,min};
     }
 
 
